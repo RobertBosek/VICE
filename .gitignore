@@ -4,10 +4,12 @@
 *.DS_Store
 *.zip
 *.tar
-*.png
 *.jpg
 *.txt
 .ipynb_checkpoints/*
 *.npz
 *.npy
 .idea/*
+
+data/MIT/
+data/own/
