@@ -1,0 +1,19 @@
+name: vice
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - numpy
+  - ftfy
+  - pandas
+  - scikit-learn
+  - scikit-image
+  - tqdm
+  - numba
+  - matplotlib
+  - seaborn
+  - statsmodels
+  - regex
+  - h5py
+prefix: C:\Users\LocalAdmin\anaconda3\envs\vice
