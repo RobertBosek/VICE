@@ -4,6 +4,10 @@
 import argparse
 import itertools
 import os
+
+# RB added for Error: OMP: Error #15: Initializing libiomp5md.dll, but found libiomp5md.dll already initialized.
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import pickle
 import random
 import re
@@ -15,6 +19,16 @@ import torch
 import optimization
 import utils
 from data import TripletData
+
+# begin additional imports
+# RB workaround for missing utils.get_batches 
+# # from torch.utils.data import DataLoader
+# legacy: from dataloader import Dataloader
+import tests.helper as helper
+from os import listdir
+from os.path import isfile, join
+
+### additional imports end
 
 os.environ["PYTHONIOENCODING"] = "UTF-8"
 # number of cores used per Python process (set to 2 if HT is enabled, else keep 1)
@@ -224,21 +238,51 @@ def evaluate_models(
     mc_samples: int,
     k: int = 5,
 ) -> None:
+    # RB: functionality for loading model paths didnt work here
     in_path = os.path.join(
-        results_dir, f"{init_dim}d", optim, mixture, str(spike), str(slab), str(pi)
+        # results_dir, f"{init_dim}d", optim, mixture, str(spike), str(slab), str(pi)
+        results_dir
     )
-    model_paths = get_model_paths(in_path)
+    
+    # RB: functionality for loading model paths didnt work here
+    # model_paths = get_model_paths(in_path)
+    model_paths = [in_path]
+    print(model_paths)
     _, val_triplets = utils.load_data(
         device=device, triplets_dir=triplets_dir, inference=False
     )
+    
     val_triplets = TripletData(
             triplets=val_triplets, n_objects=n_objects,
     )
-    val_batches = utils.get_batches(
+    
+    # RB: utils.get_batches not existent:
+    # val_batches = utils.get_batches(
+    #     triplets=val_triplets, batch_size=batch_size, train=False,
+    # )
+    
+    val_batches = helper.get_batches(
         triplets=val_triplets, batch_size=batch_size, train=False,
     )
+    
+    
+    # 
+    # RB: use DEMO functionality
+    # load mini-batches for evaluation
+    # val_batches = DataLoader(
+    #     dataset=val_triplets,
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     # RB: hardcode num_workers
+    #     # num_workers=num_workers,
+    #     num_workers=8,
+    #     drop_last=False,
+    #     pin_memory=False,
+    # )
+    
     locs, pruned_locs, pruned_scales = [], [], []
     val_losses = np.zeros(len(model_paths), dtype=np.float32)
+    
     for i, model_path in enumerate(model_paths):
         print(f"Currently pruning and evaluating model: {i+1}\n")
         try:
@@ -268,13 +312,15 @@ def evaluate_models(
             vice = utils.load_model(model=vice, PATH=model_path, device=device)
         except FileNotFoundError:
             raise Exception(f"Could not find params for {model_path}\n")
+        
         loc, pruned_loc, pruned_scale, pruned_vice = pruning(vice)
+        
         val_loss, _ = pruned_vice.evaluate(val_batches)
         val_losses[i] += val_loss
         locs.append(loc)
         pruned_locs.append(pruned_loc)
         pruned_scales.append(pruned_scale)
-
+    
     model_robustness_best_subset = compute_robustness(
         Ws_mu=pruned_locs, Ws_sigma=pruned_scales, thresh=thresh
     )
